@@ -1,11 +1,13 @@
 
-from sqlalchemy import create_engine
-from sklearn.externals import joblib
+from sqlalchemy import create_engine, inspect
+import joblib
 from plotly.graph_objs import Bar
 from flask import render_template, request, jsonify
 from flask import Flask
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet as wn
+import custom_extractor
 import json
 import plotly
 import pandas as pd
@@ -24,11 +26,13 @@ def tokenize(text):
     return clean_tokens
 
 # load data
-engine = create_engine('sqlite:///../data/DisasterResponse.db')
-df = pd.read_sql_table('Disaster', engine)
+engine = create_engine('sqlite:///C:/Users/PARKT/Documents/Python Scripts/Udacity-Project-2/data/DisasterResponse.db')
+inspector = inspect(engine)
+engine_name = inspector.get_table_names()[0]
+df = pd.read_sql_table(engine_name, engine)
 
 # load model
-model = joblib.load("../models/classifier.pkl")
+model = joblib.load("C:/Users/PARKT/Documents/Python Scripts/Udacity-Project-2/models/classifier.pkl")
 
 # index webpage displays cool visuals and receives user input text for model
 @app.route('/')
@@ -39,6 +43,9 @@ def index():
     # TODO: Below is an example - modify to extract data for your own visuals
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
+
+    category_names = df.iloc[:, 4:].columns
+    category_boolean = (df.iloc[:, 4:] != 0).sum().values
     
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
@@ -60,6 +67,25 @@ def index():
                     'title': "Genre"
                 }
             }
+        },
+        {
+            'data': [
+                Bar(
+                    x=category_names,
+                    y=category_boolean
+                )
+            ],
+
+            'layout': {
+                'title': 'Distribution of Message Categories',
+                'yaxis':{
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title':"Category",
+                    'tickangle': 35
+                }
+            }
         }
     ]
     
@@ -73,12 +99,15 @@ def index():
 # web page that handles user query and displays model results
 @app.route('/go')
 def go():
+    wn.ensure_loaded()
+
     # save user input in query
     query = request.args.get('query', '') 
 
     # use model to predict classification for query
     classification_labels = model.predict([query])[0]
     classification_results = dict(zip(df.columns[4:], classification_labels))
+    print(classification_results)
 
     # This will render the go.html Please see that file. 
     return render_template(

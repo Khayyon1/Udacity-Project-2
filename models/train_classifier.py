@@ -1,11 +1,12 @@
 from operator import mod
+from os import replace
 import sys
 import nltk
 import re
 import pickle
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.ensemble import RandomForestClassifier
@@ -15,6 +16,7 @@ from sklearn.utils.multiclass import is_multilabel
 from sqlalchemy import create_engine, inspect
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from custom_extractor import DisasterWordExtractor
 
 def load_data(database_filepath):
     engine = create_engine('sqlite:///' + database_filepath)
@@ -24,21 +26,54 @@ def load_data(database_filepath):
 
     df = pd.read_sql_table(tablename, con=engine)
 
-    X = df.message
-    Y = df.drop(['id','message','original','genre'], axis=1)
-    categories = df.columns[4:]
+    X = df['message'].values
+    Y = df[df.columns[4:]]
 
-    return X, Y, categories
+    return X, Y
+
+url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
+
+def replace_url(text):
+    '''
+    Replace url with 'urlplaceholder' in text
+    INPUT:
+        text: string
+    OUTPUT:
+        text: edited string
+    '''
+    detected_urls = re.findall(url_regex, text)
+    # replace each url in text strings with placeholder
+    for url in detected_urls:
+        text = text.replace(url, 'urlplaceholder')
+    return text
 
 def tokenize(text):
-   
-    stop_words = stopwords.words("english")
-    lemmitizer = WordNetLemmatizer()
+    # replace each url in text strings with placeholder
+    text = replace_url(text)
+    # Case Normalization
+    text = text.lower() # convert to lowercase
+    # remove puntuation characters
+    text = re.sub(r"[^a-zA-Z0-9]", " ", text)
     
-    text = re.sub('[^a-zA-Z0-9]', "", text.lower())
+    # tokenize text
     tokens = nltk.word_tokenize(text)
-    tokens = [lemmitizer.lemmatize(word).strip() for word in tokens if word not in stop_words]
-    return tokens
+    token_list = []
+    # remove stop words
+    for tok in tokens:
+        if tok not in stopwords.words("english"):
+             token_list.append(tok)
+    # initiate lemmatizer
+    lemmatizer = WordNetLemmatizer()
+    
+    # iritate through each token
+    clean_tokens = []
+    for tok in token_list:
+        # lemmatize and remove leading and tailing white space
+        clean_tok = lemmatizer.lemmatize(tok).strip()
+        
+        clean_tokens.append(clean_tok)
+    return clean_tokens
 
 def build_model():
     model = Pipeline([
@@ -46,18 +81,29 @@ def build_model():
             ('nlp_pipeline', Pipeline([
                 ('vect', CountVectorizer(tokenizer=tokenize)),
                 ('tfidf', TfidfTransformer())
-            ]))
+            ])),
+            ('disaster_words', DisasterWordExtractor())
         ])),
-        ('clf',MultiOutputClassifier(RandomForestClassifier(n_estimators=36), n_jobs=-1))
+        ('clf', MultiOutputClassifier(estimator=RandomForestClassifier(max_depth=15)))
     ])
+
+    params = { 'clf__estimator__n_estimators': [50,100]}
+
+    model = GridSearchCV(model, param_grid=params, scoring='recall_micro')
+
     return model
 
-def evaluate_model(model, X_test, Y_test, category_names):
-    y_pred=model.predict(X_test)     
-    print(classification_report(Y_test, y_pred, target_names=category_names))
+def evaluate_model(model, X_test, Y_test):
+    y_pred=model.predict(X_test)
+
+    i = 0
+    for col in Y_test:
+        print('Feature {}:{}'.format(i+1,col))
+        print(classification_report(Y_test[col],y_pred[:,i]))
+        i = i+1
+    accuracy = (y_pred == Y_test.values).mean()
+    print('The model accuracy score is {:.3f}'.format(accuracy))
     
-    # cm = confusion_matrix(y_test, y_pred)
-    # print(cm)
 
       
 def save_model(model, model_filepath):
@@ -67,19 +113,17 @@ def main():
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n   DATABASE: {}'.format(database_filepath))
-        X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y)
+        X, Y = load_data(database_filepath)
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 
         print('building model...')
         model = build_model()
 
         print('Training model...')
-        model.fit(X_train[:1000], Y_train[:1000])
-        # print(model.score(X_train[:1000], Y_train[:1000]))
-        
+        model.fit(X_train[:1000], Y_train[:1000])        
 
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        evaluate_model(model, X_test[:1000], Y_test[:1000])
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)

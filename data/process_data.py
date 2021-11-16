@@ -1,42 +1,45 @@
 import sys
-import re
 import pandas as pd
+import numpy as np
 from sqlalchemy import create_engine
 
 def load_data(messages_filepath, caategories_filepath):
-    messages = pd.read_csv(messages_filepath)
-    categories = pd.read_csv(caategories_filepath)
+    messages = pd.read_csv(messages_filepath, dtype=str)
+    categories = pd.read_csv(caategories_filepath, dtype=str)
 
-    df = messages.merge(categories, on='id')
+    df = pd.merge(left=messages, right=categories, how='inner', on=['id'])
     return df
 
 
 def clean_data(df):
-    remove_dashes = re.sub("-[01]", "", df.categories[0])
-    columns = remove_dashes.split(";")
-    # print(columns, len(columns))
+    categories = df.categories.str.split(";", expand=True)
+    row = categories[:1]
 
-    classes = df.categories.str.split(";", expand=True)
-    classes.columns = columns
+    transform_column = lambda x: x[0][:-2]
+    category_colnames = row.apply(transform_column).tolist()
+    categories.columns = category_colnames
 
-    for column in classes:
-        classes[column] = classes[column].str.get(-1)
-
-        classes[column] = classes[column].astype(int)
+    for column in categories:
+        categories[column] = categories[column].apply(lambda x: x[-1])
+        categories[column] = categories[column].astype(int)
     
-    classes.loc[classes['related']==2,'related']=1
+    others = []
+    for col in categories.columns:
+        others.append(categories[col].unique())
     
-    if 'categories' in df.columns:
-        df.drop('categories', axis=1, inplace=True)
+    for col in categories.columns:
+        categories.loc[(categories[col] != 1) & (categories[col] != 0)] = 1
+    
+    df = df.drop(['categories'], axis=1)
+    df = pd.concat([df, categories], axis=1)
 
-    df = pd.concat([df, classes], axis=1)
-    df.drop_duplicates(keep='first', inplace=True)
+    df.drop_duplicates(inplace=True)
 
     return df
 
 def save_data(df, database_filepath):
     engine = create_engine('sqlite:///' + database_filepath)
-    df.to_sql('Disaster', con=engine, index=False)
+    df.to_sql('Disaster', con=engine, index=False, if_exists='replace')
 
 def main():
     if len(sys.argv) == 4:
