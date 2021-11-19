@@ -16,7 +16,7 @@ from sklearn.utils.multiclass import is_multilabel
 from sqlalchemy import create_engine, inspect
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-from custom_extractor import DisasterWordExtractor
+from custom_extractor import Extractor
 
 def load_data(database_filepath):
     '''
@@ -111,7 +111,7 @@ def build_model():
                 ('vect', CountVectorizer(tokenizer=tokenize)),
                 ('tfidf', TfidfTransformer())
             ])),
-            ('disaster_words', DisasterWordExtractor())
+            ('disaster_words', Extractor())
         ])),
         ('clf', MultiOutputClassifier(estimator=RandomForestClassifier(max_depth=15)))
     ])

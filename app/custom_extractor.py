@@ -64,9 +64,9 @@ def tokenize(text):
         clean_token_arr.append(tokenized)
     return clean_token_arr
 
-class DisasterWordExtractor(BaseEstimator, TransformerMixin):
+class Extractor(BaseEstimator, TransformerMixin):
     '''
-    A class that represents a Custom Estimator for Disaster Word Extraction
+    A class that represents a Custom Estimator for ML model
 
     Attributes
     ----------
@@ -76,7 +76,7 @@ class DisasterWordExtractor(BaseEstimator, TransformerMixin):
 
     Methods
     -------
-    disaster_words(text)
+    words_of_interest(text)
         cleans the text provided and determines if the text is related to any disaster
         words (returns a boolean)
     fit(X, y=None)
@@ -85,7 +85,7 @@ class DisasterWordExtractor(BaseEstimator, TransformerMixin):
         returns DataFrame resulting from applying disaster_word method to X
     '''
     
-    def disaster_words(self, text):
+    def words_of_interest(self, text):
         '''
         Returns boolean based on if cleaned text has any disaster words in them
 
@@ -150,5 +150,5 @@ class DisasterWordExtractor(BaseEstimator, TransformerMixin):
         new_X : DataFrame
             DataFrame that had the disaster_word method applied to it
         '''
-        new_X = pd.Series(X).apply(self.disaster_words)
+        new_X = pd.Series(X).apply(self.words_of_interest)
         return pd.DataFrame(new_X)
