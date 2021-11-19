@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 nltk.download(['punkt', 'stopwords', 'wordnet'])
 
-url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
 
 def replace_url(text):
     '''
@@ -24,10 +24,11 @@ def replace_url(text):
     text, str
         Text without URL strings 
     '''
-    detected_urls = re.findall(url_regex, text)
+    url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    matches = re.findall(url_regex, text)
 
-    for url in detected_urls:
-        text = text.replace(url, 'urlplaceholder')
+    for match in matches:
+        text = text.replace(match, 'urlplaceholder')
     return text
 
 def tokenize(text):
@@ -49,19 +50,19 @@ def tokenize(text):
     text = replace_url(text)
     text = re.sub('[^a-zA-Z0-9]', ' ', text).lower()
     tokens = word_tokenize(text)
-    token_list = []
+    tokens_arr = []
 
     for token in tokens:
         if token not in stopwords.words("english"):
-            token_list.append(token)
+            tokens_arr.append(token)
     
     lemmatizer = WordNetLemmatizer()
 
-    clean_tokens = []
-    for token in token_list:
-        clean_token = lemmatizer.lemmatize(token).strip()
-        clean_tokens.append(clean_token)
-    return clean_tokens
+    clean_token_arr = []
+    for token in tokens_arr:
+        tokenized = lemmatizer.lemmatize(token).strip()
+        clean_token_arr.append(tokenized)
+    return clean_token_arr
 
 class DisasterWordExtractor(BaseEstimator, TransformerMixin):
     '''
@@ -97,7 +98,7 @@ class DisasterWordExtractor(BaseEstimator, TransformerMixin):
         -------
         bool
         '''
-        words = ['food', 'hunger', 'hungry', 'starving', 'water', 'drink',
+        disasters = ['food', 'hunger', 'hungry', 'starving', 'water', 'drink',
                  'eat', 'thirst',
                  'need', 'hospital', 'medicine', 'medical', 'ill', 'pain',
                  'disease', 'injured', 'falling',
@@ -107,14 +108,14 @@ class DisasterWordExtractor(BaseEstimator, TransformerMixin):
                  'people', 'shortage', 'blocked',
                  'gas', 'pregnant', 'baby'
                  ]
-        lemmatized_words = [WordNetLemmatizer().lemmatize(w, pos='v') for w in words]
-        stem_disaster_words = [PorterStemmer().stem(w) for w in lemmatized_words]
+        lemmatized = [WordNetLemmatizer().lemmatize(w, pos='v') for w in disasters]
+        disaster_words = [PorterStemmer().stem(w) for w in lemmatized]
 
         text = replace_url(text)
 
         clean_tokens = tokenize(text)
         for token in clean_tokens:
-            if token in stem_disaster_words:
+            if token in disaster_words:
                 return True
         return False
 
@@ -146,8 +147,8 @@ class DisasterWordExtractor(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        X_disaster : DataFrame
+        new_X : DataFrame
             DataFrame that had the disaster_word method applied to it
         '''
-        X_disaster_word = pd.Series(X).apply(self.disaster_words)
-        return pd.DataFrame(X_disaster_word)
+        new_X = pd.Series(X).apply(self.disaster_words)
+        return pd.DataFrame(new_X)

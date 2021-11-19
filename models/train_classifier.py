@@ -41,8 +41,6 @@ def load_data(database_filepath):
 
     return X, Y
 
-url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-
 def replace_url(text):
     '''
     Returns text without the URL in them
@@ -53,52 +51,48 @@ def replace_url(text):
             text that is being cleaned
     Returns
     -------
-        text, str
-            Text without URL strings 
+    text, str
+        Text without URL strings 
     '''
-    detected_urls = re.findall(url_regex, text)
+    url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    matches = re.findall(url_regex, text)
 
-    for url in detected_urls:
-        text = text.replace(url, 'urlplaceholder')
+    for match in matches:
+        text = text.replace(match, 'urlplaceholder')
     return text
 
 def tokenize(text):
     '''
-    Returns the clean tokens of the text that was provided
-    this function will be used in the tokenizer of the 
-    CountVectorizer model
+    Returns list of cleaned tokens from the text, function used
+    by the CountVectorizer in the ML Pipeline
 
-            Parameters:
-                    text (str): text data from the DataFrame
-            
-            Returns:
-                    clean_tokens (List[str]): list of clean strings
+    Parameters
+    ----------
+    text : str
+        string passed into the function by CountVectorizer
+
+    Returns
+    -------
+    clean_tokens : List[str]
+        Cleaned tokens without punctuation marks, stop words,
+        and extra white space
     '''
-    # replace each url in text strings with placeholder
     text = replace_url(text)
-    # Case Normalization
-    text = text.lower() # convert to lowercase
-    # remove puntuation characters
-    text = re.sub(r"[^a-zA-Z0-9]", " ", text)
+    text = re.sub('[^a-zA-Z0-9]', ' ', text).lower()
+    tokens = word_tokenize(text)
+    tokens_arr = []
+
+    for token in tokens:
+        if token not in stopwords.words("english"):
+            tokens_arr.append(token)
     
-    # tokenize text
-    tokens = nltk.word_tokenize(text)
-    token_list = []
-    # remove stop words
-    for tok in tokens:
-        if tok not in stopwords.words("english"):
-             token_list.append(tok)
-    # initiate lemmatizer
     lemmatizer = WordNetLemmatizer()
-    
-    # iritate through each token
-    clean_tokens = []
-    for tok in token_list:
-        # lemmatize and remove leading and tailing white space
-        clean_tok = lemmatizer.lemmatize(tok).strip()
-        
-        clean_tokens.append(clean_tok)
-    return clean_tokens
+
+    clean_token_arr = []
+    for token in tokens_arr:
+        tokenized = lemmatizer.lemmatize(token).strip()
+        clean_token_arr.append(tokenized)
+    return clean_token_arr
 
 def build_model():
     '''
