@@ -26,13 +26,13 @@ def tokenize(text):
     return clean_tokens
 
 # load data
-engine = create_engine('sqlite:///C:/Users/PARKT/Documents/Python Scripts/Udacity-Project-2/data/DisasterResponse.db')
+engine = create_engine('sqlite:///data/DisasterResponse.db')
 inspector = inspect(engine)
 engine_name = inspector.get_table_names()[0]
 df = pd.read_sql_table(engine_name, engine)
 
 # load model
-model = joblib.load("C:/Users/PARKT/Documents/Python Scripts/Udacity-Project-2/models/classifier.pkl")
+model = joblib.load("models/classifier.pkl")
 
 # index webpage displays cool visuals and receives user input text for model
 @app.route('/')
