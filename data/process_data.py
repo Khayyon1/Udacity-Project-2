@@ -3,15 +3,35 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
 
-def load_data(messages_filepath, caategories_filepath):
+def load_data(messages_filepath, categories_filepath):
+    '''
+    Returns the merged Pandas Data Frame of CSV files located at both provided file paths
+
+            Parameters:
+                    message_filepath (str): a string that looks like a file path
+                    categories_filepath (str): Another string that looks like a file path
+
+            Returns:
+                    df (DataFrame): DataFrame of the two CSV files
+    '''
     messages = pd.read_csv(messages_filepath, dtype=str)
-    categories = pd.read_csv(caategories_filepath, dtype=str)
+    categories = pd.read_csv(categories_filepath, dtype=str)
 
     df = pd.merge(left=messages, right=categories, how='inner', on=['id'])
     return df
 
 
 def clean_data(df):
+    '''
+    Returns new DataFrame with clean text, new column names, removed duplicates
+        and one-hot encoding of catergorical variables
+    
+            Parameters:
+                    df (DataFrame): DataFrame 
+            
+            Returns:
+                    df (DataFrame): Data Frame with cleaned data entry
+    '''
     categories = df.categories.str.split(";", expand=True)
     row = categories[:1]
 
@@ -38,6 +58,16 @@ def clean_data(df):
     return df
 
 def save_data(df, database_filepath):
+    '''
+    Creates a Local Database File from the DataFrame provided
+
+            Parameters:
+                    df (DataFrame): Pandas Data Frame 
+                    database_filepath (str): file path where Database will be created
+
+            Returns:
+                    None
+    '''
     engine = create_engine('sqlite:///' + database_filepath)
     df.to_sql('Disaster', con=engine, index=False, if_exists='replace')
 

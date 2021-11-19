@@ -19,6 +19,16 @@ from nltk.stem import WordNetLemmatizer
 from custom_extractor import DisasterWordExtractor
 
 def load_data(database_filepath):
+    '''
+    Returns the Dependent, Independent variables from DataFrame returned from database_filepath
+
+            Parameters:
+                    database_filepath (str): a string that looks like a file path, used to locate DB file
+
+            Returns:
+                    X (DataFrame): DataFrame of Independent Variables from DB file
+                    y (Series): Series of Dependent Target Variable from DB file
+    '''
     engine = create_engine('sqlite:///' + database_filepath)
     inspector = inspect(engine)
 
@@ -33,22 +43,37 @@ def load_data(database_filepath):
 
 url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
 
-
 def replace_url(text):
     '''
-    Replace url with 'urlplaceholder' in text
-    INPUT:
-        text: string
-    OUTPUT:
-        text: edited string
+    Returns text without the URL in them
+
+    Parameters
+    ----------
+        text : str
+            text that is being cleaned
+    Returns
+    -------
+        text, str
+            Text without URL strings 
     '''
     detected_urls = re.findall(url_regex, text)
-    # replace each url in text strings with placeholder
+
     for url in detected_urls:
         text = text.replace(url, 'urlplaceholder')
     return text
 
 def tokenize(text):
+    '''
+    Returns the clean tokens of the text that was provided
+    this function will be used in the tokenizer of the 
+    CountVectorizer model
+
+            Parameters:
+                    text (str): text data from the DataFrame
+            
+            Returns:
+                    clean_tokens (List[str]): list of clean strings
+    '''
     # replace each url in text strings with placeholder
     text = replace_url(text)
     # Case Normalization
@@ -76,6 +101,16 @@ def tokenize(text):
     return clean_tokens
 
 def build_model():
+    '''
+    Returns the Machine Learning model and optimizes model based on parameters 
+    provided to GridSearch
+
+            Parameters:
+                    None
+            
+            Returns:
+                    model (Estimator):  Model used for the predictive results
+    '''
     model = Pipeline([
         ('features', FeatureUnion([
             ('nlp_pipeline', Pipeline([
@@ -94,6 +129,17 @@ def build_model():
     return model
 
 def evaluate_model(model, X_test, Y_test):
+    '''
+    Displays the model's results for each of the predictive columns
+
+            Parameters:
+                model (Estimator):  Model used for the predictive results
+                X_test (DataFrame):
+                Y_test (DataFrame):
+
+            Returns:
+                None
+    '''
     y_pred=model.predict(X_test)
 
     i = 0
@@ -107,6 +153,17 @@ def evaluate_model(model, X_test, Y_test):
 
       
 def save_model(model, model_filepath):
+    '''
+    Creates a .pkl file containing the ML model in the project file directory
+    
+            Parameters:
+                    model (Estimator):  Model used for the predictive results
+                    model_filepath (str): file path that determines where the .pkl is created
+
+            Returns:
+                    generates a .pkl file in the project directory
+
+    '''
     pickle.dump(model, open(model_filepath, 'wb'))
 
 def main():
